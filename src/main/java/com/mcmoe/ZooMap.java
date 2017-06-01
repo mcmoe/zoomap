@@ -4,6 +4,8 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryOneTime;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.HashSet;
@@ -16,7 +18,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
-public class ZooMap implements Map<String, String> {
+public class ZooMap implements Map<String, String>, Closeable {
     private final CuratorFramework client;
     private final String connectionString;
     private final String root;
@@ -181,6 +183,13 @@ public class ZooMap implements Map<String, String> {
     @Override
     public void replaceAll(BiFunction<? super String, ? super String, ? extends String> function) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void close() throws IOException {
+        if(client != null) {
+            client.close();
+        }
     }
 }
 
