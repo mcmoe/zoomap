@@ -19,7 +19,21 @@ public class ZooMapTest {
 
     @Test(expected = RuntimeException.class)
     public void creating_a_new_map_with_retry_policy_with_a_downed_server_should_fail() {
-        ZooMap.newBuilder("lalalala:12345", "/test/map").withRetryPolicy(new RetryOneTime(10)).build();
+        ZooMap.newBuilder("lalalala:12345").withRoot("/test/map").withRetryPolicy(new RetryOneTime(10)).build();
+    }
+
+    @Test
+    public void creating_a_new_map_with_empty_root_should_not_fail() {
+        withServer((server) -> {
+            ZooMap.newBuilder(server.getConnectString()).withRoot("").build();
+        });
+    }
+
+    @Test
+    public void creating_a_new_map_with_slash_root_should_not_fail() {
+        withServer((server) -> {
+            ZooMap.newBuilder(server.getConnectString()).withRoot("/").build();
+        });
     }
 
     @Test

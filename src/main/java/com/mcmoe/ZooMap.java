@@ -24,20 +24,26 @@ public class ZooMap implements Map<String, String>, Closeable {
     private final String connectionString;
     private final String root;
 
+    public static ZooMap newMap(String connectionString) {
+        return newBuilder(connectionString).build();
+    }
+
     public static ZooMap newMap(String connectionString, String root) {
-        return newBuilder(connectionString, root).build();
+        return newBuilder(connectionString).withRoot(root).build();
     }
 
-    public static Builder newBuilder(String connectionString, String root) {
-        return new Builder(connectionString, root);
+    public static Builder newBuilder(String connectionString) {
+        return new Builder(connectionString);
     }
 
-    private ZooMap(String connectionString, String root, RetryPolicy retryPolicy) {
-        this.connectionString = connectionString;
-        client = CuratorFrameworkFactory.newClient(connectionString, retryPolicy);
-        this.root = root;
+    private ZooMap(Builder builder) {
+        this.connectionString = builder.connectionString;
+        client = CuratorFrameworkFactory.newClient(connectionString, builder.retryPolicy);
+        this.root = builder.root;
         startAndBlock();
-        tryIt(() -> client.createContainers(root));
+        if(!root.isEmpty()) {
+            tryIt(() -> client.createContainers(root));
+        }
     }
 
     private void startAndBlock() {
@@ -203,10 +209,10 @@ public class ZooMap implements Map<String, String>, Closeable {
 
     public static class Builder {
         private final String connectionString;
-        private final String root;
+        private String root = "";
         private RetryPolicy retryPolicy = new RetryOneTime(1000);
 
-        private Builder(String connectionString, String root) {
+        private Builder(String connectionString) {
             this.connectionString = connectionString;
             this.root = root;
         }
@@ -216,8 +222,17 @@ public class ZooMap implements Map<String, String>, Closeable {
             return this;
         }
 
+        public Builder withRoot(String root) {
+            if("/".equals(root) || root == null) {
+                this.root = "";
+            } else {
+                this.root = root;
+            }
+            return this;
+        }
+
         public ZooMap build() {
-            return new ZooMap(connectionString, root, retryPolicy);
+            return new ZooMap(this);
         }
     }
 }
