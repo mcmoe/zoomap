@@ -1,4 +1,8 @@
-# zoomap
+### Status
+[![Build Status](https://api.travis-ci.org/mcmoe/zoomap.png)](https://travis-ci.org/mcmoe/zoomap)
+
+
+# Zoomap
 A Zookeeper backed stateless Java Map implementation using the curator framework
 
 # Why

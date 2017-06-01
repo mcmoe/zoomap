@@ -5,6 +5,9 @@ repositories {
     mavenLocal()
 }
 
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
 dependencies {
     compile 'org.apache.curator:curator-framework:2.12.0'
 
