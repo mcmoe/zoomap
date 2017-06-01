@@ -1,5 +1,6 @@
 package com.mcmoe;
 
+import org.apache.curator.retry.RetryOneTime;
 import org.apache.curator.test.TestingServer;
 import org.junit.Test;
 
@@ -13,7 +14,12 @@ public class ZooMapTest {
 
     @Test(expected = RuntimeException.class)
     public void creating_a_new_map_with_a_downed_server_should_fail() {
-        new ZooMap("lalalala:12345", "/test/map");
+        ZooMap.newMap("lalalala:12345", "/test/map");
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void creating_a_new_map_with_retry_policy_with_a_downed_server_should_fail() {
+        ZooMap.newBuilder("lalalala:12345", "/test/map").withRetryPolicy(new RetryOneTime(10)).build();
     }
 
     @Test
@@ -68,8 +74,8 @@ public class ZooMapTest {
     @Test
     public void my_map_should_equal_another_with_same_connection_and_root() {
         withServer((server) -> {
-            Map<String, String> zooMap1 = new ZooMap(server.getConnectString(), "/test/map");
-            Map<String, String> zooMap2 = new ZooMap(server.getConnectString(), "/test/map");
+            Map<String, String> zooMap1 = ZooMap.newMap(server.getConnectString(), "/test/map");
+            Map<String, String> zooMap2 = ZooMap.newMap(server.getConnectString(), "/test/map");
             assertThat(zooMap1).isEqualTo(zooMap2);
         });
     }
@@ -77,8 +83,8 @@ public class ZooMapTest {
     @Test
     public void my_map_should_not_equal_another_with_same_connection_but_different_root() {
         withServer((server) -> {
-            Map<String, String> zooMap1 = new ZooMap(server.getConnectString(), "/test/map1");
-            Map<String, String> zooMap2 = new ZooMap(server.getConnectString(), "/test/map2");
+            Map<String, String> zooMap1 = ZooMap.newMap(server.getConnectString(), "/test/map1");
+            Map<String, String> zooMap2 = ZooMap.newMap(server.getConnectString(), "/test/map2");
             assertThat(zooMap1).isNotEqualTo(zooMap2);
         });
     }
@@ -86,9 +92,9 @@ public class ZooMapTest {
     @Test
     public void my_map_should_not_equal_another_with_different_connection_but_same_root() {
         withServer((server) -> {
-            Map<String, String> zooMap1 = new ZooMap(server.getConnectString(), "/test/map");
+            Map<String, String> zooMap1 = ZooMap.newMap(server.getConnectString(), "/test/map");
             withServer((s2) -> {
-                Map<String, String> zooMap2 = new ZooMap(s2.getConnectString(), "/test/map");
+                Map<String, String> zooMap2 = ZooMap.newMap(s2.getConnectString(), "/test/map");
                 assertThat(zooMap1).isNotEqualTo(zooMap2);
             });
         });
@@ -97,9 +103,9 @@ public class ZooMapTest {
     @Test
     public void my_map_should_not_equal_another_with_different_connection_and_root() {
         withServer((server) -> {
-            Map<String, String> zooMap1 = new ZooMap(server.getConnectString(), "/test/map1");
+            Map<String, String> zooMap1 = ZooMap.newMap(server.getConnectString(), "/test/map1");
             withServer((s2) -> {
-                Map<String, String> zooMap2 = new ZooMap(s2.getConnectString(), "/test/map2");
+                Map<String, String> zooMap2 = ZooMap.newMap(s2.getConnectString(), "/test/map2");
                 assertThat(zooMap1).isNotEqualTo(zooMap2);
             });
         });
@@ -107,7 +113,7 @@ public class ZooMapTest {
 
     private void withMap(Consumer<Map<String, String>> testBlock) {
         withServer((server) -> {
-            Map<String, String> zooMap = new ZooMap(server.getConnectString(), "/test/map");
+            Map<String, String> zooMap = ZooMap.newMap(server.getConnectString(), "/test/map");
             testBlock.accept(zooMap);
         });
     }

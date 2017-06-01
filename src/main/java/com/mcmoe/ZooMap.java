@@ -1,5 +1,6 @@
 package com.mcmoe;
 
+import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryOneTime;
@@ -23,9 +24,17 @@ public class ZooMap implements Map<String, String>, Closeable {
     private final String connectionString;
     private final String root;
 
-    public ZooMap(String connectionString, String root) {
+    public static ZooMap newMap(String connectionString, String root) {
+        return newBuilder(connectionString, root).build();
+    }
+
+    public static Builder newBuilder(String connectionString, String root) {
+        return new Builder(connectionString, root);
+    }
+
+    private ZooMap(String connectionString, String root, RetryPolicy retryPolicy) {
         this.connectionString = connectionString;
-        client = CuratorFrameworkFactory.newClient(connectionString, new RetryOneTime(1000));
+        client = CuratorFrameworkFactory.newClient(connectionString, retryPolicy);
         this.root = root;
         startAndBlock();
         tryIt(() -> client.createContainers(root));
@@ -189,6 +198,26 @@ public class ZooMap implements Map<String, String>, Closeable {
     public void close() throws IOException {
         if(client != null) {
             client.close();
+        }
+    }
+
+    public static class Builder {
+        private final String connectionString;
+        private final String root;
+        private RetryPolicy retryPolicy = new RetryOneTime(1000);
+
+        private Builder(String connectionString, String root) {
+            this.connectionString = connectionString;
+            this.root = root;
+        }
+
+        public Builder withRetryPolicy(RetryPolicy retryPolicy) {
+            this.retryPolicy = retryPolicy;
+            return this;
+        }
+
+        public ZooMap build() {
+            return new ZooMap(connectionString, root, retryPolicy);
         }
     }
 }
