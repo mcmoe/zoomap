@@ -237,10 +237,12 @@ public class ZooMap implements Map<String, String>, Closeable {
     }
 }
 
+@FunctionalInterface
 interface ThrowingSupplier<R> {
     R get() throws Exception;
 }
 
+@FunctionalInterface
 interface ThrowingRunner {
     void run() throws Exception;
 }
