@@ -3,6 +3,7 @@ package com.mcmoe;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.imps.CuratorFrameworkState;
 import org.apache.curator.retry.RetryOneTime;
 import org.apache.curator.test.TestingServer;
 import org.junit.Test;
@@ -10,6 +11,8 @@ import org.junit.Test;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
+import javax.naming.NamingException;
+import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -369,6 +372,17 @@ public class ZooMapTest {
             try(ZooMap zooMap = ZooMap.newMap(server.getConnectString() + "/test/map")) {
                 assertThat(zooMap).containsEntry("Roger", "Federer");
             }
+        });
+    }
+
+    @Test
+    public void garbaged_map_should_close_curator_client() throws NamingException {
+        withServer(srv -> {
+            WeakReference<ZooMap> zooMap = new WeakReference<>(ZooMap.newMap(srv.getConnectString()));
+            final CuratorFramework client = ZooMap.Periscope.client(zooMap.get());
+            System.gc();
+            assertThat(zooMap.get()).isNull();
+            assertThat(client.getState()).isEqualTo(CuratorFrameworkState.STOPPED);
         });
     }
 
