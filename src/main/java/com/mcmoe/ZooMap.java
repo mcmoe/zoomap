@@ -272,6 +272,19 @@ public class ZooMap implements Map<String, String>, Closeable {
             return new ZooMap(this);
         }
     }
+
+    @Override
+    protected void finalize() throws Throwable {
+        if(client != null) {
+            client.close();
+        }
+    }
+
+    static class Periscope {
+        static CuratorFramework client(ZooMap zooMap) {
+            return zooMap.client;
+        }
+    }
 }
 
 @FunctionalInterface
