@@ -25,6 +25,11 @@ public class ZooMapTest {
         ZooMap.newBuilder("lalalala:12345").withRoot("/test/map").withRetryPolicy(new RetryOneTime(10)).build();
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void creating_a_new_map_with_non_absolute_root_should_fail() {
+        ZooMap.newBuilder("lalalala:12345").withRoot("test/map").build();
+    }
+
     @Test
     public void creating_a_new_map_with_empty_root_should_not_fail() {
         withServer((server) -> {
@@ -59,6 +64,35 @@ public class ZooMapTest {
         withMap((zooMap) -> {
             zooMap.put("bla", "");
             assertThat(zooMap.containsKey("bla")).isTrue();
+        });
+    }
+
+    @Test
+    public void contains_on_existing_value_should_return_true() {
+        withMap((zooMap) -> {
+            zooMap.put("Roger", "Federer");
+            zooMap.put("Raphael", "Nadal");
+            assertThat(zooMap.containsValue("Federer")).isTrue();
+            assertThat(zooMap.containsValue("Nadal")).isTrue();
+        });
+    }
+
+    @Test
+    public void remove_on_existing_keys_should_return_previous_value_and_remove_entry() {
+        withMap(zooMap -> {
+            zooMap.put("Roger", "Federer");
+            assertThat(zooMap.remove("Roger")).isEqualTo("Federer");
+            assertThat(zooMap.values()).doesNotContain("Federer");
+            assertThat(zooMap.keySet()).doesNotContain("Roger");
+        });
+    }
+
+    @Test
+    public void put_on_existing_keys_should_return_previous_value_and_put_new_value() {
+        withMap(zooMap -> {
+            zooMap.put("Roger", "Federer");
+            assertThat(zooMap.put("Roger", "Moore")).isEqualTo("Federer");
+            assertThat(zooMap).containsEntry("Roger", "Moore");
         });
     }
 
@@ -129,6 +163,45 @@ public class ZooMapTest {
     }
 
     @Test
+    public void my_map_should_not_equal_another_object_type() {
+        withServer((server) -> {
+            Map<String, String> zooMap1 = ZooMap.newMap(server.getConnectString(), "/test/map");
+            assertThat(zooMap1).isNotEqualTo(new Object());
+        });
+    }
+
+    @Test
+    public void my_map_should_return_values_and_keys_with_empty_root() {
+        withServer(server -> {
+            final ZooMap zooMap = ZooMap.newBuilder(server.getConnectString()).withRoot("").build();
+            zooMap.put("Roger", "Federer");
+            zooMap.put("Raphael", "Nadal");
+            assertThat(zooMap.values()).containsAllOf("Federer", "Nadal");
+            assertThat(zooMap.keySet()).containsAllOf("Roger", "Raphael");
+        });
+    }
+
+    @Test
+    public void my_map_should_clear() {
+        withServer(server -> {
+            final ZooMap zooMap = ZooMap.newBuilder(server.getConnectString()).withRoot("/foo").build();
+            zooMap.put("Roger", "Federer");
+            zooMap.clear();
+            assertThat(zooMap.values()).isEmpty();
+            assertThat(zooMap.keySet()).isEmpty();
+        });
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void my_map_should_not_clear_with_empty_root() {
+        withServer(server -> {
+            final ZooMap zooMap = ZooMap.newBuilder(server.getConnectString()).withRoot("").build();
+            zooMap.put("Roger", "Federer");
+            zooMap.clear();
+        });
+    }
+
+    @Test
     public void my_map_should_serialize_values_as_utf8_byte_array() {
         withServer(server -> {
             final ZooMap zooMap = ZooMap.newBuilder(server.getConnectString()).withRoot("").build();
@@ -144,8 +217,9 @@ public class ZooMapTest {
 
     private void withMap(Consumer<Map<String, String>> testBlock) {
         withServer((server) -> {
-            Map<String, String> zooMap = ZooMap.newMap(server.getConnectString(), "/test/map");
-            testBlock.accept(zooMap);
+            try(ZooMap zooMap = ZooMap.newMap(server.getConnectString(), "/test/map")) {
+                testBlock.accept(zooMap);
+            }
         });
     }
 
@@ -153,6 +227,8 @@ public class ZooMapTest {
         try(TestingServer server = new TestingServer()) {
             server.start();
             testBlock.accept(server);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new AssertionError(e);
         }
