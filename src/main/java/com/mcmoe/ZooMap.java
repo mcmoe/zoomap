@@ -6,7 +6,6 @@ import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryOneTime;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 import java.util.Collection;
@@ -68,6 +67,8 @@ public class ZooMap implements Map<String, String>, Closeable {
     private <R> R tryIt(ThrowingSupplier<R> s) {
         try {
             return s.get();
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -92,7 +93,7 @@ public class ZooMap implements Map<String, String>, Closeable {
     }
 
     private List<String> getKeys() throws Exception {
-        return client.getChildren().forPath(root);
+        return client.getChildren().forPath(emptyToSlash(root));
     }
 
     @Override
@@ -114,6 +115,10 @@ public class ZooMap implements Map<String, String>, Closeable {
         return root + "/" + key;
     }
 
+    private static String emptyToSlash(String path) {
+        return path.isEmpty() ? "/" : path;
+    }
+
     @Override
     public String get(Object key) {
         if(key instanceof String) {
@@ -128,10 +133,13 @@ public class ZooMap implements Map<String, String>, Closeable {
 
     @Override
     public String put(String key, String value) {
-        String previousValue = get(key);
-        tryIt(() -> client.createContainers(keyPath(key)));
-        tryIt(() -> client.setData().forPath(keyPath(key), value.getBytes()));
-        return previousValue;
+        if(key != null && !key.isEmpty()) {
+            String previousValue = get(key);
+            tryIt(() -> client.createContainers(keyPath(key)));
+            tryIt(() -> client.setData().forPath(keyPath(key), value.getBytes(StandardCharsets.UTF_8)));
+            return previousValue;
+        }
+        throw new IllegalArgumentException("Key should not be empty nor null (" + key + ")");
     }
 
     @Override
@@ -154,13 +162,13 @@ public class ZooMap implements Map<String, String>, Closeable {
 
     @Override
     public void clear() {
-        tryIt(() -> client.delete().deletingChildrenIfNeeded().forPath(root));
-        tryIt(() -> client.create().forPath(root));
+        tryIt(() -> client.delete().deletingChildrenIfNeeded().forPath(emptyToSlash(root)));
+        tryIt(() -> client.create().forPath(emptyToSlash(root)));
     }
 
     @Override
     public Set<String> keySet() {
-        return new HashSet<>(tryIt(() -> client.getChildren().forPath(root)));
+        return new HashSet<>(tryIt(() -> client.getChildren().forPath(emptyToSlash(root))));
     }
 
     @Override
@@ -200,7 +208,7 @@ public class ZooMap implements Map<String, String>, Closeable {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if(client != null) {
             client.close();
         }
@@ -222,10 +230,15 @@ public class ZooMap implements Map<String, String>, Closeable {
         }
 
         public Builder withRoot(String root) {
-            if("/".equals(root) || root == null) {
+            if(root == null) {
                 this.root = "";
+            } else if(root.endsWith("/")) {
+                this.root = root.substring(0, root.length() - 1);
             } else {
                 this.root = root;
+            }
+            if(!root.isEmpty() && !root.startsWith("/")) {
+                throw new IllegalArgumentException("Root path should start with \"/\"");
             }
             return this;
         }
