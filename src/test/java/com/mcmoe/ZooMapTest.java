@@ -1,9 +1,12 @@
 package com.mcmoe;
 
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryOneTime;
 import org.apache.curator.test.TestingServer;
 import org.junit.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -125,6 +128,20 @@ public class ZooMapTest {
         });
     }
 
+    @Test
+    public void my_map_should_serialize_values_as_utf8_byte_array() {
+        withServer(server -> {
+            final ZooMap zooMap = ZooMap.newBuilder(server.getConnectString()).withRoot("").build();
+            try(CuratorFramework client = CuratorFrameworkFactory.newClient(server.getConnectString(), new RetryOneTime(100))) {
+                client.start();
+                zooMap.put("Roger", "Fedérer");
+                final byte[] bytes = client.getData().forPath("/Roger");
+                assertThat(new String(bytes, StandardCharsets.ISO_8859_1)).isNotEqualTo("Fedérer");
+                assertThat(new String(bytes, StandardCharsets.UTF_8)).isEqualTo("Fedérer");
+            }
+        });
+    }
+
     private void withMap(Consumer<Map<String, String>> testBlock) {
         withServer((server) -> {
             Map<String, String> zooMap = ZooMap.newMap(server.getConnectString(), "/test/map");
@@ -132,7 +149,7 @@ public class ZooMapTest {
         });
     }
 
-    private void withServer(Consumer<TestingServer> testBlock) {
+    private void withServer(ThrowingConsumer<TestingServer> testBlock) {
         try(TestingServer server = new TestingServer()) {
             server.start();
             testBlock.accept(server);
@@ -140,4 +157,9 @@ public class ZooMapTest {
             throw new AssertionError(e);
         }
     }
+}
+
+@FunctionalInterface
+interface ThrowingConsumer<T> {
+    void accept(T t) throws Exception;
 }

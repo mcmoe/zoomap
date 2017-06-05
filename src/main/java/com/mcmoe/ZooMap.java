@@ -7,6 +7,7 @@ import org.apache.curator.retry.RetryOneTime;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.HashSet;
@@ -97,17 +98,16 @@ public class ZooMap implements Map<String, String>, Closeable {
     @Override
     public boolean containsValue(Object value) {
         if(value instanceof String) {
-            return tryIt(() -> getKeys().stream().map(this::getValue).anyMatch(b -> value.equals(new String(b))));
+            return tryIt(() -> getKeys().stream().map(this::getValue).anyMatch(value::equals));
         }
         throw new IllegalArgumentException("value must be of type String");
     }
 
-    private byte[] getValue(String key) {
-        try {
-            return client.getData().forPath(keyPath(key));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private String getValue(String key) {
+        return tryIt(() -> {
+            final byte[] bytes = client.getData().forPath(keyPath(key));
+            return bytes != null ? new String(bytes, StandardCharsets.UTF_8) : null;
+        });
     }
 
     private String keyPath(String key) {
@@ -120,8 +120,7 @@ public class ZooMap implements Map<String, String>, Closeable {
             if(!containsKey(key)) {
                 return null;
             }
-            byte[] value = tryIt(() -> client.getData().forPath(keyPath((String) key)));
-            return value != null ? new String(value) : null;
+            return getValue((String)key);
         }
 
         throw new IllegalArgumentException("key must be of type String");
@@ -175,7 +174,7 @@ public class ZooMap implements Map<String, String>, Closeable {
     }
 
     private Function<String, Entry<String, String>> entryFromKey() {
-        return k -> new AbstractMap.SimpleEntry<>(k, tryIt(() -> new String(getValue(k))));
+        return k -> new AbstractMap.SimpleEntry<>(k, tryIt(() -> getValue(k)));
     }
 
     @Override
