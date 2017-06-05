@@ -2,6 +2,7 @@ package com.mcmoe;
 
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
+import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.curator.retry.RetryOneTime;
 import org.apache.curator.test.TestingServer;
 import org.junit.Test;
@@ -205,7 +206,7 @@ public class ZooMapTest {
     public void my_map_should_serialize_values_as_utf8_byte_array() {
         withServer(server -> {
             final ZooMap zooMap = ZooMap.newBuilder(server.getConnectString()).withRoot("").build();
-            try(CuratorFramework client = CuratorFrameworkFactory.newClient(server.getConnectString(), new RetryOneTime(100))) {
+            try (CuratorFramework client = CuratorFrameworkFactory.newClient(server.getConnectString(), new RetryOneTime(100))) {
                 client.start();
                 zooMap.put("Roger", "Fedérer");
                 final byte[] bytes = client.getData().forPath("/Roger");
@@ -213,6 +214,11 @@ public class ZooMapTest {
                 assertThat(new String(bytes, StandardCharsets.UTF_8)).isEqualTo("Fedérer");
             }
         });
+    }
+
+    @Test
+    public void verify_equals_and_hashcode() {
+        EqualsVerifier.forClass(ZooMap.class).withIgnoredFields("client").withNonnullFields("root", "connectionString").verify();
     }
 
     private void withMap(Consumer<Map<String, String>> testBlock) {
