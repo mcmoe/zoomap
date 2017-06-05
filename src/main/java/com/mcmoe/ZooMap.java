@@ -186,7 +186,7 @@ public class ZooMap implements Map<String, String>, Closeable {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public final boolean equals(Object o) {
         if (o == this)
             return true;
 
@@ -198,7 +198,7 @@ public class ZooMap implements Map<String, String>, Closeable {
     }
 
     @Override
-    public int hashCode() {
+    public final int hashCode() {
         return this.connectionString.hashCode() + this.root.hashCode();
     }
 
