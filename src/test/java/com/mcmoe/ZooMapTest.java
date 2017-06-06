@@ -32,6 +32,11 @@ public class ZooMapTest {
         ZooMap.newBuilder("lalalala:12345").withRoot("test/map").build();
     }
 
+    @Test(expected = RuntimeException.class)
+    public void creating_a_new_chrooted_map_with_a_downed_server_should_fail() {
+        ZooMap.newBuilder("lalalala:12345/test/map").build();
+    }
+
     @Test
     public void create_a_new_zoo_map_without_a_root_should_use_the_top_level_zookeeper_root() {
         withServer((server) -> {
@@ -58,6 +63,11 @@ public class ZooMapTest {
     @Test
     public void creating_a_new_map_with_slash_root_should_not_fail() {
         withServer((server) -> ZooMap.newBuilder(server.getConnectString()).withRoot("/").build());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void creating_a_new_map_with_invalid_root_should_not_fail() {
+        withServer((server) -> ZooMap.newBuilder(server.getConnectString()).withRoot("///").build());
     }
 
     @Test
@@ -126,6 +136,11 @@ public class ZooMapTest {
     @Test(expected = IllegalArgumentException.class)
     public void put_with_a_null_key_should_fail() {
         withMap(zooMap -> zooMap.put("", "biggie"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void put_with_a_illegal_key_should_fail() {
+        withMap(zooMap -> zooMap.put("\\//", "biggie"));
     }
 
     @Test

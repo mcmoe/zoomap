@@ -7,6 +7,7 @@ import org.apache.curator.retry.RetryOneTime;
 import org.apache.zookeeper.client.ConnectStringParser;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
@@ -44,24 +45,24 @@ public class ZooMap implements Map<String, String>, Closeable {
         if(connectStringParser.getChrootPath() != null) {
             final String connectionStringForChrootCreation = connectStringParser.getServerAddresses().stream().map(InetSocketAddress::toString).collect(Collectors.joining(","));
             try(final CuratorFramework clientForChrootCreation = CuratorFrameworkFactory.newClient(connectionStringForChrootCreation, builder.retryPolicy)) {
-                clientForChrootCreation.start();
+                startAndBlock(clientForChrootCreation);
                 tryIt(() -> clientForChrootCreation.createContainers(connectStringParser.getChrootPath()));
             }
         }
         client = CuratorFrameworkFactory.newClient(connectionString, builder.retryPolicy);
         this.root = builder.root;
-        startAndBlock();
+        startAndBlock(client);
         if(!root.isEmpty()) {
             tryIt(() -> client.createContainers(root));
         }
     }
 
-    private void startAndBlock() {
-        client.start();
+    private static void startAndBlock(CuratorFramework c) {
+        c.start();
 
         tryIt(() -> {
-            if(!client.blockUntilConnected(1, TimeUnit.SECONDS)) {
-                throw new RuntimeException("Did not connect in time");
+            if(!c.blockUntilConnected(1, TimeUnit.SECONDS)) {
+                throw new IOException("Did not connect in time");
             }
         });
     }
