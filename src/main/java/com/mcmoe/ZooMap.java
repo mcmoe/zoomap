@@ -56,7 +56,7 @@ public class ZooMap implements Map<String, String>, Closeable {
         });
     }
 
-    private void tryIt(ThrowingRunner r) {
+    private static void tryIt(ThrowingRunner r) {
         try {
             r.run();
         } catch (Exception e) {
@@ -64,7 +64,7 @@ public class ZooMap implements Map<String, String>, Closeable {
         }
     }
 
-    private <R> R tryIt(ThrowingSupplier<R> s) {
+    private static <R> R tryIt(ThrowingSupplier<R> s) {
         try {
             return s.get();
         } catch (RuntimeException e) {

@@ -8,6 +8,7 @@ import org.apache.curator.test.TestingServer;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -32,22 +33,36 @@ public class ZooMapTest {
     }
 
     @Test
-    public void creating_a_new_map_with_empty_root_should_not_fail() {
+    public void create_a_new_zoo_map_without_a_root_should_use_the_top_level_zookeeper_root() {
         withServer((server) -> {
-            ZooMap.newBuilder(server.getConnectString()).withRoot("").build();
+            ZooMap zooMap = ZooMap.newMap(server.getConnectString());
+            assertThat(zooMap).doesNotContainKey(("myKey"));
+            try (CuratorFramework client = CuratorFrameworkFactory.newClient(server.getConnectString(), new RetryOneTime(100))) {
+                client.start();
+                client.createContainers("/myKey");
+                assertThat(zooMap).containsKey(("myKey"));
+            }
         });
     }
 
     @Test
+    public void creating_a_new_map_with_empty_root_should_not_fail() {
+        withServer((server) -> ZooMap.newBuilder(server.getConnectString()).withRoot("").build());
+    }
+
+    @Test
     public void creating_a_new_map_with_slash_root_should_not_fail() {
-        withServer((server) -> {
-            ZooMap.newBuilder(server.getConnectString()).withRoot("/").build();
-        });
+        withServer((server) -> ZooMap.newBuilder(server.getConnectString()).withRoot("/").build());
     }
 
     @Test
     public void creating_a_new_map_with_a_running_server_should_succeed() throws Exception {
         withMap((zooMap) -> assertThat(zooMap).isNotNull());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void contains_on_non_string_key_should_fail() {
+        withMap((zoomap) -> zoomap.containsKey(new Integer(0)));
     }
 
     @Test
@@ -68,6 +83,11 @@ public class ZooMapTest {
         });
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void contains_on_non_string_value_should_fail() {
+        withMap((zoomap) -> zoomap.containsValue(new Integer(0)));
+    }
+
     @Test
     public void contains_on_existing_value_should_return_true() {
         withMap((zooMap) -> {
@@ -78,6 +98,11 @@ public class ZooMapTest {
         });
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void remove_with_non_string_key_should_fail() {
+        withMap(zooMap -> zooMap.remove(new Integer(0)));
+    }
+
     @Test
     public void remove_on_existing_keys_should_return_previous_value_and_remove_entry() {
         withMap(zooMap -> {
@@ -86,6 +111,16 @@ public class ZooMapTest {
             assertThat(zooMap.values()).doesNotContain("Federer");
             assertThat(zooMap.keySet()).doesNotContain("Roger");
         });
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void put_with_an_empty_key_should_fail() {
+        withMap(zooMap -> zooMap.put(null, "tupac"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void put_with_a_null_key_should_fail() {
+        withMap(zooMap -> zooMap.put("", "biggie"));
     }
 
     @Test
@@ -103,6 +138,22 @@ public class ZooMapTest {
     }
 
     @Test
+    public void put_all_should_add_all_entries_to_zoomap() {
+        withMap(zooMap -> {
+            Map<String, String> map = new HashMap<>();
+            map.put("a", "a");
+            map.put("b", "b");
+            map.put("c", "c");
+
+            zooMap.putAll(map);
+            assertThat(zooMap).hasSize(3);
+            map.forEach((k, v) ->  {
+                assertThat(zooMap).containsKey(k);
+                assertThat(zooMap.containsValue(v)).isTrue();
+            });
+        });
+    }
+    @Test
     public void get_of_empty_string_put_should_return_empty_string() {
         withMap((zooMap) -> {
             zooMap.put("ka", "");
@@ -116,6 +167,11 @@ public class ZooMapTest {
             zooMap.put("ka", "va");
             assertThat(zooMap.get("ka")).isEqualTo("va");
         });
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void a_get_with_non_string_key_should_fail() {
+        withMap((zoomap) -> zoomap.get(new Integer(0)));
     }
 
     @Test
@@ -182,6 +238,18 @@ public class ZooMapTest {
         });
     }
 
+    @Test(expected = RuntimeException.class)
+    public void clearing_a_zoomap_whose_path_has_been_deleted_should_fail() {
+        withServer(server -> {
+            final ZooMap zooMap = ZooMap.newBuilder(server.getConnectString()).withRoot("/some/root").build();
+            try (CuratorFramework client = CuratorFrameworkFactory.newClient(server.getConnectString(), new RetryOneTime(100))) {
+                client.start();
+                client.delete().forPath("/some/root");
+            }
+            zooMap.clear();
+        });
+    }
+
     @Test
     public void my_map_should_clear() {
         withServer(server -> {
@@ -221,6 +289,38 @@ public class ZooMapTest {
         EqualsVerifier.forClass(ZooMap.class).withIgnoredFields("client").withNonnullFields("root", "connectionString").verify();
     }
 
+    @Test
+    public void an_empty_zoomap_should_respect_the_is_empty_contract() {
+        withMap(zoomap -> assertThat(zoomap).isEmpty());
+    }
+
+    @Test
+    public void a_non_empty_zoomap_should_respect_the_is_empty_contract() {
+        withMap(zoomap -> {
+            zoomap.put("yo", "lo");
+            assertThat(zoomap).isNotEmpty();
+        });
+    }
+
+    @Test
+    public void an_empty_zoomap_should_have_a_size_of_zero() {
+        withMap(zoomap -> assertThat(zoomap).hasSize(0));
+    }
+
+    @Test
+    public void a_zoomap_with_items_should_return_the_correct_size() {
+        withMap(zoomap -> {
+            zoomap.put("Mambo", "a");
+            zoomap.put("Jambo", "b");
+            zoomap.put("Rambo", "c");
+            assertThat(zoomap).hasSize(3);
+        });
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void a_zoomap_should_not_support_replace_all() {
+        withMap(zoomap -> zoomap.replaceAll(null));
+    }
     private void withMap(Consumer<Map<String, String>> testBlock) {
         withServer((server) -> {
             try(ZooMap zooMap = ZooMap.newMap(server.getConnectString(), "/test/map")) {
