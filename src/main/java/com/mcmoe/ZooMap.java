@@ -69,6 +69,8 @@ public class ZooMap implements Map<String, String>, Closeable {
     private static void tryIt(ThrowingRunner r) {
         try {
             r.run();
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -231,7 +233,6 @@ public class ZooMap implements Map<String, String>, Closeable {
 
         private Builder(String connectionString) {
             this.connectionString = connectionString;
-            this.root = root;
         }
 
         public Builder withRetryPolicy(RetryPolicy retryPolicy) {
@@ -247,7 +248,7 @@ public class ZooMap implements Map<String, String>, Closeable {
             } else {
                 this.root = root;
             }
-            if(!root.isEmpty() && !root.startsWith("/")) {
+            if(!this.root.isEmpty() && !this.root.startsWith("/")) {
                 throw new IllegalArgumentException("Root path should start with \"/\"");
             }
             return this;
