@@ -51,6 +51,11 @@ public class ZooMapTest {
     }
 
     @Test
+    public void creating_a_new_map_with_null_root_should_not_fail() {
+        withServer((server) -> ZooMap.newBuilder(server.getConnectString()).withRoot(null).build());
+    }
+
+    @Test
     public void creating_a_new_map_with_slash_root_should_not_fail() {
         withServer((server) -> ZooMap.newBuilder(server.getConnectString()).withRoot("/").build());
     }
