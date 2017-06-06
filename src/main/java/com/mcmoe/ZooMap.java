@@ -4,8 +4,10 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryOneTime;
+import org.apache.zookeeper.client.ConnectStringParser;
 
 import java.io.Closeable;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 import java.util.Collection;
@@ -38,6 +40,14 @@ public class ZooMap implements Map<String, String>, Closeable {
 
     private ZooMap(Builder builder) {
         this.connectionString = builder.connectionString;
+        ConnectStringParser connectStringParser = new ConnectStringParser(connectionString);
+        if(connectStringParser.getChrootPath() != null) {
+            final String connectionStringForChrootCreation = connectStringParser.getServerAddresses().stream().map(InetSocketAddress::toString).collect(Collectors.joining(","));
+            try(final CuratorFramework clientForChrootCreation = CuratorFrameworkFactory.newClient(connectionStringForChrootCreation, builder.retryPolicy)) {
+                clientForChrootCreation.start();
+                tryIt(() -> clientForChrootCreation.createContainers(connectStringParser.getChrootPath()));
+            }
+        }
         client = CuratorFrameworkFactory.newClient(connectionString, builder.retryPolicy);
         this.root = builder.root;
         startAndBlock();

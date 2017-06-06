@@ -321,6 +321,20 @@ public class ZooMapTest {
     public void a_zoomap_should_not_support_replace_all() {
         withMap(zoomap -> zoomap.replaceAll(null));
     }
+
+    @Test
+    public void my_map_should_create_chroot_without_removing_existing_root_if_exists() {
+        withServer((server) -> {
+            try(ZooMap zooMap = ZooMap.newMap(server.getConnectString() + "/test/map")) {
+                zooMap.put("Roger", "Federer");
+            }
+            /* Create chroot a second time */
+            try(ZooMap zooMap = ZooMap.newMap(server.getConnectString() + "/test/map")) {
+                assertThat(zooMap).containsEntry("Roger", "Federer");
+            }
+        });
+    }
+
     private void withMap(Consumer<Map<String, String>> testBlock) {
         withServer((server) -> {
             try(ZooMap zooMap = ZooMap.newMap(server.getConnectString(), "/test/map")) {
