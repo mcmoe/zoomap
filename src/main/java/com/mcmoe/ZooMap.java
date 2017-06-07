@@ -149,7 +149,7 @@ public class ZooMap implements Map<String, String>, Closeable {
         if(key != null && !key.isEmpty()) {
             String previousValue = get(key);
             tryIt(() -> client.createContainers(keyPath(key)));
-            tryIt(() -> client.setData().forPath(keyPath(key), value.getBytes(StandardCharsets.UTF_8)));
+            tryIt(() -> client.setData().forPath(keyPath(key), value != null ? value.getBytes(StandardCharsets.UTF_8) : null));
             return previousValue;
         }
         throw new IllegalArgumentException("Key should not be empty nor null (" + key + ")");
@@ -222,9 +222,7 @@ public class ZooMap implements Map<String, String>, Closeable {
 
     @Override
     public void close() {
-        if(client != null) {
-            client.close();
-        }
+        client.close();
     }
 
     public static class Builder {
