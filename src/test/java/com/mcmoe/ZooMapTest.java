@@ -173,11 +173,27 @@ public class ZooMapTest {
             });
         });
     }
+
     @Test
     public void get_of_empty_string_put_should_return_empty_string() {
         withMap((zooMap) -> {
             zooMap.put("ka", "");
             assertThat(zooMap.get("ka")).isEmpty();
+        });
+    }
+
+    @Test
+    public void get_of_null_string_put_should_return_null_string() {
+        withMap((zooMap) -> {
+            zooMap.put("null", null);
+            assertThat(zooMap.get("null")).isNull();
+        });
+    }
+
+    @Test
+    public void removing_missing_key_should_return_null() {
+        withMap((zooMap) -> {
+            assertThat(zooMap.remove("missing")).isNull();
         });
     }
 
