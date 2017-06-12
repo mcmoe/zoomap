@@ -1,13 +1,14 @@
 package com.mcmoe;
 
+import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
-import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.curator.retry.RetryOneTime;
 import org.apache.curator.test.TestingServer;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -18,13 +19,13 @@ import static com.google.common.truth.Truth.assertThat;
 public class ZooMapTest {
 
     @Test(expected = RuntimeException.class)
-    public void creating_a_new_map_with_a_downed_server_should_fail() {
-        ZooMap.newMap("lalalala:12345", "/test/map");
+    public void creating_a_new_map_with_a_downed_server_should_fail() throws InterruptedException {
+        ZooMap.newBuilder("lalalala:12345").withConnectionTimeout(Duration.ofSeconds(1)).build();
     }
 
     @Test(expected = RuntimeException.class)
     public void creating_a_new_map_with_retry_policy_with_a_downed_server_should_fail() {
-        ZooMap.newBuilder("lalalala:12345").withRoot("/test/map").withRetryPolicy(new RetryOneTime(10)).build();
+        ZooMap.newBuilder("lalalala:12345").withConnectionTimeout(Duration.ofSeconds(1)).withRetryPolicy(new RetryOneTime(10)).build();
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -34,7 +35,7 @@ public class ZooMapTest {
 
     @Test(expected = RuntimeException.class)
     public void creating_a_new_chrooted_map_with_a_downed_server_should_fail() {
-        ZooMap.newBuilder("lalalala:12345/test/map").build();
+        ZooMap.newBuilder("lalalala:12345/test/map").withConnectionTimeout(Duration.ofSeconds(1)).build();
     }
 
     @Test

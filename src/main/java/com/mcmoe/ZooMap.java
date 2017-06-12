@@ -10,13 +10,13 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -44,12 +44,12 @@ public class ZooMap implements Map<String, String>, Closeable {
         ConnectStringParser connectStringParser = new ConnectStringParser(connectionString);
         if(connectStringParser.getChrootPath() != null) {
             final String connectionStringForChrootCreation = connectStringParser.getServerAddresses().stream().map(InetSocketAddress::toString).collect(Collectors.joining(","));
-            try(final CuratorFramework clientForChrootCreation = CuratorFrameworkFactory.newClient(connectionStringForChrootCreation, builder.retryPolicy)) {
+            try(final CuratorFramework clientForChrootCreation = newCuratorFrameworkClient(builder, connectionStringForChrootCreation)) {
                 startAndBlock(clientForChrootCreation);
                 tryIt(() -> clientForChrootCreation.createContainers(connectStringParser.getChrootPath()));
             }
         }
-        client = CuratorFrameworkFactory.newClient(connectionString, builder.retryPolicy);
+        client = newCuratorFrameworkClient(builder, connectionString);
         this.root = builder.root;
         startAndBlock(client);
         if(!root.isEmpty()) {
@@ -57,12 +57,20 @@ public class ZooMap implements Map<String, String>, Closeable {
         }
     }
 
+    private static CuratorFramework newCuratorFrameworkClient(Builder builder, String connectionString) {
+        return CuratorFrameworkFactory.builder()
+                .connectString(connectionString)
+                .retryPolicy(builder.retryPolicy)
+                .connectionTimeoutMs((int) builder.duration.toMillis())
+                .build();
+    }
+
     private static void startAndBlock(CuratorFramework c) {
         c.start();
 
         tryIt(() -> {
-            if(!c.blockUntilConnected(1, TimeUnit.SECONDS)) {
-                throw new IOException("Did not connect in time");
+            if(!c.getZookeeperClient().blockUntilConnectedOrTimedOut()) {
+                throw new IOException("Did not connect in time: " + c.getZookeeperClient().getConnectionTimeoutMs() + " ms");
             }
         });
     }
@@ -226,9 +234,11 @@ public class ZooMap implements Map<String, String>, Closeable {
     }
 
     public static class Builder {
+        private static final int DEFAULT_CONNECTION_TIMEOUT_SECONDS = 15;
         private final String connectionString;
         private String root = "";
         private RetryPolicy retryPolicy = new RetryOneTime(1000);
+        private Duration duration = Duration.ofSeconds(DEFAULT_CONNECTION_TIMEOUT_SECONDS);
 
         private Builder(String connectionString) {
             this.connectionString = connectionString;
@@ -250,6 +260,11 @@ public class ZooMap implements Map<String, String>, Closeable {
             if(!this.root.isEmpty() && !this.root.startsWith("/")) {
                 throw new IllegalArgumentException("Root path should start with \"/\"");
             }
+            return this;
+        }
+
+        public Builder withConnectionTimeout(Duration duration) {
+            this.duration = duration;
             return this;
         }
 
