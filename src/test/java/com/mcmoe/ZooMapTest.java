@@ -12,11 +12,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import javax.naming.NamingException;
-import java.lang.ref.WeakReference;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.core.Is.is;
 
 
 public class ZooMapTest {
@@ -378,11 +380,9 @@ public class ZooMapTest {
     @Test
     public void garbaged_map_should_close_curator_client() throws NamingException {
         withServer(srv -> {
-            WeakReference<ZooMap> zooMap = new WeakReference<>(ZooMap.newMap(srv.getConnectString()));
-            final CuratorFramework client = ZooMap.Periscope.client(zooMap.get());
+            final CuratorFramework client = ZooMap.Periscope.client(ZooMap.newMap(srv.getConnectString()));
             System.gc();
-            assertThat(zooMap.get()).isNull();
-            assertThat(client.getState()).isEqualTo(CuratorFrameworkState.STOPPED);
+            await().atMost(5, TimeUnit.SECONDS).until(client::getState, is(CuratorFrameworkState.STOPPED));
         });
     }
 
