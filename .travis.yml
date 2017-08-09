@@ -3,5 +3,8 @@ language: java
 jdk:
   - oraclejdk8
 
+notifications:
+  webhooks: https://app.fossa.io/hooks/travisci
+
 after_success:
   - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
