@@ -3,5 +3,11 @@ language: java
 jdk:
   - oraclejdk8
 
+before_script:
+  - npm install -g license-cli
+  - cd <PROJECT_DIR>
+  - license-cli auth <FOSSA_API_TOKEN>
+  - license-cli scan -r $TRAVIS_COMMIT
+
 after_success:
   - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
